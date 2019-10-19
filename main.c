@@ -11,9 +11,9 @@
 #define MAX_LINE 80
 #define PROMPT "osh>"
 
-// Hàm cho người dùng nhập command
-// Input: chuỗi để chứa command
-// Output: -1 nếu không thể thực thi, còn lại, trả về số ký tự chuỗi command
+// Hàm cho người dùng nhập lệnh
+// Input: chuỗi để chứa lệnh
+// Output: trả về số ký tự của chuỗi lệnh, -1 nếu thất bại
 int getCommand(char *str) 
 {
 	char ch;
@@ -34,27 +34,27 @@ int getCommand(char *str)
 		str[i] = 0;
 	}
 
-	// Đọc tất cả các ký tự thừa ngoài MAX_LINE ký tự trong vùng đệm
+	// Đọc tất cả các ký tự thừa vượt số lượng MAX_LINE trong vùng đệm
 	while (ch != '\n') ch = getchar();
 	return i;
 }
 
-// Hàm tách chuỗi command thành 1 danh sách các lệnh
-// Input: chuỗi command, mảng chứa danh sách các lệnh
-// Output: độ dài mảng chứa danh sách lệnh
+// Hàm tách chuỗi command thành 1 danh sách các lệnh và tham số
+// Input: chuỗi command, mảng chứa danh sách các lệnh và tham số
+// Output: độ dài mảng chứa danh sách các lệnh và tham số
 int parseCommand(char command[], char *args[])
 {
-    int args_num = 0;
-    char* arg;
+	int args_num = 0;
+	char* arg;
 
-    while (arg = strtok_r(command, " ", &command))
-    {
-        args[args_num++] = arg;
-    }
+	while (arg = strtok_r(command, " ", &command))
+	{
+		args[args_num++] = arg;
+	}
 
-    args[args_num] = NULL;
+	args[args_num] = NULL;
 
-    return args_num;
+	return args_num;
 }
 
 // Redirect đầu vào sang tập tin
@@ -101,9 +101,9 @@ int redirectOutput(char dir[])
 	return 0;
 }
 
-// Hàm tìm vị trí của "|" trong mảng chứa danh sách lệnh
-// Input: mảng chứa lệnh, số lượng phần tử
-// Output: -1 nếu không tìm thấy, còn lại trả về vị trí của "|" trong mảng
+// Hàm tìm vị trí của "|" trong mảng chứa danh sách các lệnh và tham số
+// Input: mảng chứa danh sách các lệnh và tham số, số lượng phần tử
+// Output: trả về vị trí của "|" trong mảng, -1 nếu không tìm thấy
 int findPipePosition(char *args[], int args_num)
 {
 	for (int i = 0; i < args_num; i++)
@@ -117,8 +117,7 @@ int findPipePosition(char *args[], int args_num)
 }
 
 // Hàm thực thi lệnh chứa "|"
-// Input: mảng chứa lệnh, số lượng phần tử, vị trí của "|" trong mảng
-
+// Input: mảng chứa danh sách các lệnh và tham số, số lượng phần tử, vị trí của "|" trong mảng
 int pipeProcesses(char *args[], int args_num, int pipePosition)
 {
 	int p[2];
@@ -128,7 +127,7 @@ int pipeProcesses(char *args[], int args_num, int pipePosition)
 		exit(2);
 	}
 
-	// Tách các lệnh sau "|" thành mảng riêng (args2[])
+	// Tách các lệnh và tham số sau "|" thành mảng riêng (args2[])
 	char *args2[MAX_LINE];
 	for (int i = pipePosition + 1; i < args_num; i++)
 	{
@@ -159,7 +158,7 @@ int pipeProcesses(char *args[], int args_num, int pipePosition)
 		close(p[0]);
 		close(p[1]);
 
-		// Thực thi chuỗi lệnh sau "|"
+		// Thực thi lệnh sau "|"
 		if (execvp(args2[0], args2) == -1)
 		{
 			printf("Failed to execute the command.\n");
@@ -187,6 +186,7 @@ int pipeProcesses(char *args[], int args_num, int pipePosition)
 			close(p[1]);
 			close(p[0]);
 
+			// Thực thi lệnh trước "|"
 			if (execvp(args[0], args) == -1)
 			{
 				printf("Failed to execute the command.\n");
@@ -199,16 +199,16 @@ int pipeProcesses(char *args[], int args_num, int pipePosition)
 			close(p[1]);
 			waitpid(pidProcess2, NULL, 0);
 		}
-
+		// Đợi các process con hoàn tất
 		wait(NULL);
 	}
 }
 
 // Hàm thực thi lệnh
-// Input: mảng chứa lệnh, số phần tử mảng
+// Input: mảng chứa danh sách các lệnh và tham số, số phần tử mảng
 int executeCommand(char* args[], int args_num)
 {
-    // Check if redirect to input file
+  // Kiểm tra nếu có redirect đầu vào sang file
 	if (args_num > 2 && strcmp(args[args_num - 2], "<") == 0)
 	{
 		redirectInput(args[args_num - 1]);
@@ -216,7 +216,7 @@ int executeCommand(char* args[], int args_num)
 		args_num = args_num - 2;
 	}
 
-	// Check if redirect to output file
+	// Kiểm tra nếu có redirect đầu ra sang file
 	if (args_num > 2 && strcmp(args[args_num - 2], ">") == 0)
 	{
 		redirectOutput(args[args_num - 1]);
@@ -224,6 +224,7 @@ int executeCommand(char* args[], int args_num)
 		args_num = args_num - 2;
 	}
 
+	// Kiểm tra nếu có "|" nối 2 lệnh
 	int pipePosition;
 
 	if (args_num > 2 && (pipePosition = findPipePosition(args, args_num)) != -1)
@@ -242,7 +243,7 @@ int executeCommand(char* args[], int args_num)
 
 int main()
 {
-    bool running = true;
+  bool running = true;
 	int flagWait;
 	char command[MAX_LINE + 1];
 	char *args[MAX_LINE / 2 + 1];
@@ -250,18 +251,18 @@ int main()
 	char preCommand[MAX_LINE + 1] = "";
 	pid_t pid;
 
-    while (running)
-    {
-        flagWait = 1;
-        printf(PROMPT);
-        fflush(stdout);
+	while (running)
+	{
+		flagWait = 1;
+		printf(PROMPT);
+		fflush(stdout);
 
-        int cmdLenght = getCommand(command);
+		int cmdLenght = getCommand(command);
 
-		// Can't input command or command is empty
-        if (cmdLenght <= 0) continue;
+		// Không thể nhập lệnh hoặc lệnh rỗng
+		if (cmdLenght <= 0) continue;
 
-		// Check history
+		// Kiểm tra lệnh trước đó
 		if (strcmp(args[0], "!!") == 0)
 		{
 			if (strcmp(preCommand, "") == 0)
@@ -271,20 +272,20 @@ int main()
 			strcpy(command, preCommand);
 		}
 
-		// Store current command to history
+		// Lưu chuỗi lệnh đang thực thi vào lịch sử
 		strcpy(preCommand, command);
 
-		// Parse command to list of arguments
+		// Tách chuỗi lệnh thành mảng các lệnh và tham số 
 		args_num = parseCommand(command, args);
 
-		// Check if exit
-        if (strcmp(args[0], "exit") == 0)
+		// Kiểm tra nếu "exit"
+		if (strcmp(args[0], "exit") == 0)
 		{
 			running = false;
 			continue;
 		}
 
-		// Check if change directory
+		// Kiểm tra nếu "cd"
 		if (strcmp(args[0], "cd") == 0)
 		{
 			if (chdir(args[1]) < 0)
@@ -294,7 +295,7 @@ int main()
 			continue;
 		}
 
-        // Check if process executes in background
+		// Kiểm tra nếu có chạy ngầm
 		if (strcmp(args[args_num - 1], "&") == 0)
 		{
 			flagWait = 0;
@@ -304,11 +305,11 @@ int main()
 
 		pid = fork();
 
-		if (pid == 0)	// Child process
+		if (pid == 0)	// Process con
 		{
 			executeCommand(args, args_num);
 		}
-		else if (pid > 0)	// Parent process
+		else if (pid > 0)	// Process cha
 		{
 			if (flagWait == 0)
 			{
@@ -316,10 +317,10 @@ int main()
 			}
 			waitpid(pid, NULL, 0);
 		}
-		else	// Can't fork
+		else	// Lỗi fork
 		{
 			printf("Can't fork process.\n");
 		}
-    }
-    return 0;
+	}
+	return 0;
 }

@@ -11,6 +11,9 @@
 #define MAX_LINE 80
 #define PROMPT "osh>"
 
+// Hàm cho người dùng nhập command
+// Input: chuỗi để chứa command
+// Output: -1 nếu không thể thực thi, còn lại, trả về số ký tự chuỗi command
 int getCommand(char *str) 
 {
 	char ch;
@@ -30,10 +33,15 @@ int getCommand(char *str)
 	{
 		str[i] = 0;
 	}
+
+	// Đọc tất cả các ký tự thừa ngoài MAX_LINE ký tự trong vùng đệm
 	while (ch != '\n') ch = getchar();
 	return i;
 }
 
+// Hàm tách chuỗi command thành 1 danh sách các lệnh
+// Input: chuỗi command, mảng chứa danh sách các lệnh
+// Output: độ dài mảng chứa danh sách lệnh
 int parseCommand(char command[], char *args[])
 {
     int args_num = 0;
@@ -49,6 +57,8 @@ int parseCommand(char command[], char *args[])
     return args_num;
 }
 
+// Redirect đầu vào sang tập tin
+// Input: tên file
 int redirectInput(char dir[])
 {
 	int fd = open(dir, O_RDONLY);
@@ -69,6 +79,8 @@ int redirectInput(char dir[])
 	return 0;
 }
 
+// Redirect đầu ra sang tập tin
+// Input: tên file
 int redirectOutput(char dir[])
 {
 	int fd = creat(dir, O_WRONLY | O_CREAT | S_IRWXU);
@@ -89,6 +101,9 @@ int redirectOutput(char dir[])
 	return 0;
 }
 
+// Hàm tìm vị trí của "|" trong mảng chứa danh sách lệnh
+// Input: mảng chứa lệnh, số lượng phần tử
+// Output: -1 nếu không tìm thấy, còn lại trả về vị trí của "|" trong mảng
 int findPipePosition(char *args[], int args_num)
 {
 	for (int i = 0; i < args_num; i++)
@@ -101,6 +116,9 @@ int findPipePosition(char *args[], int args_num)
 	return -1;
 }
 
+// Hàm thực thi lệnh chứa "|"
+// Input: mảng chứa lệnh, số lượng phần tử, vị trí của "|" trong mảng
+
 int pipeProcesses(char *args[], int args_num, int pipePosition)
 {
 	int p[2];
@@ -110,7 +128,7 @@ int pipeProcesses(char *args[], int args_num, int pipePosition)
 		exit(2);
 	}
 
-	// Separate args[] to 2 parts
+	// Tách các lệnh sau "|" thành mảng riêng (args2[])
 	char *args2[MAX_LINE];
 	for (int i = pipePosition + 1; i < args_num; i++)
 	{
@@ -125,13 +143,14 @@ int pipeProcesses(char *args[], int args_num, int pipePosition)
 
 	pid_t pidProcess2 = fork();
 
-	if (pidProcess2 < 0)
+	if (pidProcess2 < 0)	// lỗi fork()
 	{
 		printf("Can't fork process.\n");
 		exit(2);
 	}
-	else if (pidProcess2 == 0)
+	else if (pidProcess2 == 0)	// process con
 	{
+		// Redirect đầu vào sang pipe (process sẽ đợi process khác viết dữ liệu vào pipe rồi mới đọc và thực thi)
 		if (dup2(p[0], STDIN_FILENO) < 0)
 		{
 			printf("Failed redirecting input.\n");
@@ -140,23 +159,26 @@ int pipeProcesses(char *args[], int args_num, int pipePosition)
 		close(p[0]);
 		close(p[1]);
 
+		// Thực thi chuỗi lệnh sau "|"
 		if (execvp(args2[0], args2) == -1)
 		{
 			printf("Failed to execute the command.\n");
 			exit(2);
 		}
 	}
-	else
+	else	// process cha
 	{
+		// Process cha tiếp tục tạo process để thực thi lệnh
 		pidProcess2 = fork();
 
-		if (pidProcess2 < 0)
+		if (pidProcess2 < 0)	// lỗi fork()
 		{
 			printf("Can't fork process.\n");
 			exit(2);
 		}
-		else if (pidProcess2 == 0)
+		else if (pidProcess2 == 0)	// process con
 		{
+			// Redirect đầu ra sang pipe
 			if (dup2(p[1], STDOUT_FILENO) < 0)
 			{
 				printf("Failed redirecting output.\n");
@@ -182,6 +204,8 @@ int pipeProcesses(char *args[], int args_num, int pipePosition)
 	}
 }
 
+// Hàm thực thi lệnh
+// Input: mảng chứa lệnh, số phần tử mảng
 int executeCommand(char* args[], int args_num)
 {
     // Check if redirect to input file

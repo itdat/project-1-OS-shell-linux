@@ -208,7 +208,10 @@ int pipeProcesses(char *args[], int args_num, int pipePosition)
 // Input: mảng chứa lệnh, số phần tử mảng
 int executeCommand(char* args[], int args_num)
 {
-    // Check if redirect to input file
+	// Kiểm tra nếu có pipe liên kết 2 lệnh
+	int pipePosition;
+
+    // Kiểm tra nếu có redirect input sang file
 	if (args_num > 2 && strcmp(args[args_num - 2], "<") == 0)
 	{
 		redirectInput(args[args_num - 1]);
@@ -216,7 +219,7 @@ int executeCommand(char* args[], int args_num)
 		args_num = args_num - 2;
 	}
 
-	// Check if redirect to output file
+	// Kiểm tra nếu có redirect output sang file
 	if (args_num > 2 && strcmp(args[args_num - 2], ">") == 0)
 	{
 		redirectOutput(args[args_num - 1]);
@@ -224,11 +227,10 @@ int executeCommand(char* args[], int args_num)
 		args_num = args_num - 2;
 	}
 
-	int pipePosition;
-
 	if (args_num > 2 && (pipePosition = findPipePosition(args, args_num)) != -1)
 	{
 		pipeProcesses(args, args_num, pipePosition);
+		exit(EXIT_SUCCESS);
 	}
 
 	if (execvp(args[0], args) == -1)
